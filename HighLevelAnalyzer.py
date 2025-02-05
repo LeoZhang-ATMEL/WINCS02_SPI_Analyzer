@@ -1,4 +1,3 @@
-
 # Copyright (c) 2023 iAchieved.it LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -36,10 +35,14 @@ RESERVED        = 0x03
 # Analyzer states for Byte mode
 START      = 0
 GET_CMD    = 1
-GET_INS    = 1
-GET_ADDR_H = 2
-GET_ADDR_L = 3
-GET_DATA   = 4
+GET_INS    = 2
+GET_ADDR_0 = 3
+GET_ADDR_1 = 4
+GET_ADDR_2 = 5
+GET_ADDR_3 = 6
+GET_DATA   = 7
+GET_REGVAL = 8
+UNKNOWN    = 9
 
 # High level analyzers must subclass the HighLevelAnalyzer class.
 class HLA_WINCS02_SPI(HighLevelAnalyzer):
@@ -51,7 +54,7 @@ class HLA_WINCS02_SPI(HighLevelAnalyzer):
       'format': 'Header'
     },
     'Instruction': {
-      'format': '{{data.instruction}}'
+      'format': 'Cmd {{data.instruction}}'
     },
     'Address': {
       'format':  'Address {{data.address}}'
@@ -113,22 +116,47 @@ class HLA_WINCS02_SPI(HighLevelAnalyzer):
         self.instruction = frame.data['mosi'] # Our instruction will be on the MOSI line
         self.address     = None               # Prepare to receive address
         self.data        = b''                # Prepare to receive data
-
+        
         self.state = GET_CMD           # Next byte will be CMD
 
         return AnalyzerFrame('Header', frame.start_time, frame.end_time, {
           'header': 'Head'
         })
+      elif self.state == GET_CMD:
+
+        self.instruction = frame.data['mosi'][0] # Our instruction will be on the MOSI line
+        self.address     = None              # Prepare to receive address
+        self.data        = frame.data['mosi'][0]                # Prepare to receive data
+
+        self.state = GET_ADDR_0
+
+        self.instruction = bytes(frame.data['mosi'])[0] & 0x3F
+        return AnalyzerFrame('Instruction', frame.start_time, frame.end_time, {
+          'instruction': bytes([self.instruction])[0]
+        })  
+      elif self.state == GET_ADDR_0:
+        self.address = (bytes(frame.data['mosi'])[0] & 0x70) << 24
+        self.address |= (bytes(frame.data['mosi'])[0] & 0x03) << 15
+        self.address_frame_start = frame.start_time
+        self.state = GET_ADDR_1
+
+      elif self.state == GET_ADDR_1:
+        self.address |= (bytes(frame.data['mosi'])[0] & 0xff) << 7
+        self.state = GET_ADDR_2
+
+      elif self.state == GET_ADDR_2:
+        self.address |= (bytes(frame.data['mosi'])[0] & 0xfe) >> 1
+        self.state = GET_REGVAL
+        return AnalyzerFrame('Address', self.address_frame_start, frame.end_time, {
+          'address': hex(self.address)
+        })  
+      elif self.state == GET_REGVAL:
+        self.data = frame.data['mosi'][0]
+        self.state = UNKNOWN
+        return AnalyzerFrame('Data', frame.start_time, frame.end_time, {
+          'data': hex(self.data)
+        })
 
     elif frame.type == 'disable':
-
-      if self.state == GET_DATA:
-        # Return the data frame itself
-        return AnalyzerFrame('Data',
-          self.data_frame_start,
-          self.data_frame_end, {
-          'data': self.data
-        })
-      else:
-        # This isn't a valid state
-        pass
+      # This isn't a valid state
+      pass

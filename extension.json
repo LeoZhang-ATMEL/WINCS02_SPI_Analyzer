@@ -5,9 +5,9 @@
   "version": "0.0.1",
   "description": "",
   "extensions": {
-    "I2C_TempSensor_HLA": {
+    "WINCS02 Decoder": {
       "type": "HighLevelAnalyzer",
-      "entryPoint": "HighLevelAnalyzer.Hla"
+      "entryPoint": "HighLevelAnalyzer.HLA_WINCS02_SPI"
     }
   }
 }
