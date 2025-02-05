@@ -1,0 +1,13 @@
+{
+  "name": "WINCS02_HLA",
+  "apiVersion": "1.0.0",
+  "author": "Liang",
+  "version": "0.0.1",
+  "description": "",
+  "extensions": {
+    "I2C_TempSensor_HLA": {
+      "type": "HighLevelAnalyzer",
+      "entryPoint": "HighLevelAnalyzer.Hla"
+    }
+  }
+}
